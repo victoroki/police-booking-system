@@ -9,10 +9,8 @@ redirectIfNotAdmin();
 
 $db = new Database();
 
-// Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_officer'])) {
-        // Add new officer logic
         $name = htmlspecialchars($_POST['full_name'] ?? '');
         $email = filter_var($_POST['email'] ?? '', FILTER_SANITIZE_EMAIL);
         $password = password_hash($_POST['password'] ?? '', PASSWORD_DEFAULT);
@@ -24,12 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $db->query(
-                    "INSERT INTO users (full_name, email, password, role_id) 
-                     SELECT ?, ?, ?, id FROM roles WHERE name = 'officer'",
+                    "INSERT INTO users (full_name, email, password, role, role_id, status) 
+                     VALUES (?, ?, ?, 'officer', (SELECT id FROM roles WHERE name = 'officer'), 'active')",
                     [$name, $email, $password]
                 );
                 $_SESSION['success_message'] = "Officer added successfully!";
-                header("Refresh:0"); 
+                header("Refresh:0");
                 exit;
             } catch (Exception $e) {
                 $error_message = "Error adding officer: " . $e->getMessage();
@@ -42,33 +40,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             [$name, $email, $password]
         );
     } elseif (isset($_POST['delete_officer'])) {
-        // Delete officer logic
         $officer_id = (int)$_POST['officer_id'];
         $db->query(
-            "DELETE FROM users WHERE id = ? AND role_id = (SELECT id FROM roles WHERE name = 'officer')",
+            "DELETE FROM users 
+             WHERE id = ? AND (role = 'officer' OR role_id = (SELECT id FROM roles WHERE name = 'officer'))",
             [$officer_id]
         );
     }
 }
 
-// Get all officers
 $officers = $db->query(
-    "SELECT u.id, u.full_name, u.email FROM users u 
-     JOIN roles r ON u.role_id = r.id 
-     WHERE r.name = 'officer'"
+    "SELECT id, full_name, email FROM users 
+     WHERE role = 'officer' OR role_id = (SELECT id FROM roles WHERE name = 'officer')"
 ) ?: [];
+
 ?>
-    <?php include __DIR__ . '/navbar.php'; ?>
-    <?php include __DIR__ . '/sidebar.php'; ?>
+<?php include __DIR__ . '/navbar.php'; ?>
+<?php include __DIR__ . '/sidebar.php'; ?>
 
 <div class="main-content">
-<a  href="/views/auth/logout.php"
-                               onclick="return confirm('Are you sure you want to logout?')">
-                            <i class="fas fa-sign-out-alt me-2"></i>Logout
-                        </a><
-    <div class="container-fluid p-4">
+        <div class="container-fluid p-4">
         <h2 class="mb-4"><i class="fas fa-user-shield me-2"></i> Manage Officers</h2>
-        
+
         <!-- Add Officer Form -->
         <div class="card mb-4">
             <div class="card-header bg-white">
@@ -99,7 +92,6 @@ $officers = $db->query(
             </div>
         </div>
 
-        <!-- Officers List -->
         <div class="card">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Officers List</h5>
@@ -127,7 +119,7 @@ $officers = $db->query(
                                             <form method="POST" style="display: inline;">
                                                 <input type="hidden" name="officer_id" value="<?= $officer['id'] ?>">
                                                 <button type="submit" name="delete_officer" class="btn btn-sm btn-outline-danger"
-                                                        onclick="return confirm('Are you sure you want to delete this officer?')">
+                                                    onclick="return confirm('Are you sure you want to delete this officer?')">
                                                     <i class="fas fa-trash-alt"></i> Delete
                                                 </button>
                                             </form>
@@ -146,7 +138,7 @@ $officers = $db->query(
                 <?php endif; ?>
             </div>
         </div>
-    </div>
+</div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/foooter.php'; ?>
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>

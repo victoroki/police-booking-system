@@ -8,43 +8,48 @@ $db = new Database();
 $user_id = $_SESSION['user_id'];
 
 // Initialize default values
+// Initialize dashboard data
 $stats = [
     'total' => 0,
     'pending' => 0,
-    'approved' => 0
+    'approved' => 0,
+    'rejected' => 0
 ];
 
+$recent_bookings = [];
+
 try {
-    // Get counts with error handling
-    $bookings_result = $db->query("SELECT COUNT(*) as total FROM bookings WHERE user_id = ?", [$user_id]);
-    $stats['total'] = $bookings_result['total'] ?? 0;
+    // Get booking statistics
+    $stats_query = "SELECT 
+        COUNT(*) as total,
+        SUM(status = 'pending') as pending,
+        SUM(status = 'approved') as approved,
+        SUM(status = 'rejected') as rejected
+        FROM bookings 
+        WHERE user_id = ?";
     
-    $pending_result = $db->query("SELECT COUNT(*) as total FROM bookings WHERE user_id = ? AND status = 'pending'", [$user_id]);
-    $stats['pending'] = $pending_result['total'] ?? 0;
+    $stats_result = $db->query($stats_query, [$user_id]);
+    if (!empty($stats_result)) {
+        $stats = array_merge($stats, $stats_result[0]);
+    }
+
+    // Get recent bookings with officer information
+    $recent_query = "SELECT 
+        b.id, b.event_name, b.event_date, b.location, b.status,
+        b.created_at, u.full_name as officer_name
+        FROM bookings b
+        LEFT JOIN users u ON b.officer_id = u.id
+        WHERE b.user_id = ?
+        ORDER BY b.created_at DESC 
+        LIMIT 5";
     
-    $approved_result = $db->query("SELECT COUNT(*) as total FROM bookings WHERE user_id = ? AND status = 'approved'", [$user_id]);
-    $stats['approved'] = $approved_result['total'] ?? 0;
-    
+    $recent_bookings = $db->query($recent_query, [$user_id]) ?: [];
+
 } catch (Exception $e) {
     error_log("Dashboard error: " . $e->getMessage());
-    // Continue with default values
+    $_SESSION['error_message'] = "Error loading dashboard data. Please try again.";
 }
 
-// Get recent bookings with error handling
-$recent_bookings = [];
-try {
-    $recent_bookings = $db->query(
-        "SELECT b.*, 
-        (SELECT name FROM officers WHERE id = b.officer_id LIMIT 1) as officer_name 
-        FROM bookings b
-        WHERE b.user_id = ?
-        ORDER BY b.created_at DESC LIMIT 5",
-        [$user_id]
-    ) ?: [];
-} catch (Exception $e) {
-    error_log("Recent bookings error: " . $e->getMessage());
-    $recent_bookings = [];
-}
 ?>
 
 <!DOCTYPE html>
@@ -58,11 +63,12 @@ try {
     <link rel="stylesheet" href="../../assets/css/sidebar.css">
 </head>
 <body>
+<?php include __DIR__ . '/navbar.php'; ?>
     <div class="d-flex">
         <?php include __DIR__ . '/sidebar.php'; ?>
 
         <div class="main-content">
-            <?php include __DIR__ . '/navbar.php'; ?>
+
 
             <div class="container-fluid p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -79,7 +85,7 @@ try {
                                 <i class="fas fa-calendar-check stat-icon"></i>
                                 <h6 class="text-muted mb-2">Total Bookings</h6>
                                 <h2 class="mb-3"><?php echo $stats['total']; ?></h2>
-                                <a href="/views/customer/bookings/list.php" class="text-primary text-decoration-none small fw-bold">
+                                <a href="/views/bookings/list.php" class="text-primary text-decoration-none small fw-bold">
                                     View all <i class="fas fa-arrow-right ms-1"></i>
                                 </a>
                             </div>
@@ -92,7 +98,7 @@ try {
                                 <i class="fas fa-clock stat-icon"></i>
                                 <h6 class="text-muted mb-2">Pending</h6>
                                 <h2 class="mb-3"><?php echo $stats['pending']; ?></h2>
-                                <a href="/views/customer/bookings/list.php?status=pending" class="text-warning text-decoration-none small fw-bold">
+                                <a href="/views/list.php?status=pending" class="text-warning text-decoration-none small fw-bold">
                                     View pending <i class="fas fa-arrow-right ms-1"></i>
                                 </a>
                             </div>
@@ -105,7 +111,7 @@ try {
                                 <i class="fas fa-check-circle stat-icon"></i>
                                 <h6 class="text-muted mb-2">Approved</h6>
                                 <h2 class="mb-3"><?php echo $stats['approved']; ?></h2>
-                                <a href="/views/customer/bookings/list.php?status=approved" class="text-success text-decoration-none small fw-bold">
+                                <a href="/views/bookings/list.php?status=approved" class="text-success text-decoration-none small fw-bold">
                                     View approved <i class="fas fa-arrow-right ms-1"></i>
                                 </a>
                             </div>
@@ -116,7 +122,7 @@ try {
                 <div class="card">
                     <div class="card-header bg-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fas fa-history me-2"></i> Recent Bookings</h5>
-                        <a href="/views/customer/bookings/list.php" class="btn btn-sm btn-outline-primary">
+                        <a href="/views/customers/bookings/list.php" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-list me-1"></i> View All
                         </a>
                     </div>
@@ -131,7 +137,7 @@ try {
                                             <th>Officer</th>
                                             <th>Location</th>
                                             <th>Status</th>
-                                            <th>Actions</th>
+                                            <!-- <th>Actions</th> -->
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -149,12 +155,12 @@ try {
                                                         <?php echo ucfirst($booking['status']); ?>
                                                     </span>
                                                 </td>
-                                                <td>
+                                                <!-- <td>
                                                     <a href="/views/customer/bookings/view.php?id=<?php echo $booking['id']; ?>"
                                                        class="btn btn-sm btn-outline-primary">
                                                         <i class="fas fa-eye me-1"></i> View
                                                     </a>
-                                                </td>
+                                                </td> -->
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>

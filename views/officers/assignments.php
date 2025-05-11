@@ -6,20 +6,20 @@ redirectIfNotOfficer();
 
 $db = new Database();
 $officer_id = $_SESSION['user_id'];
-error_log("Officer ID: " . $officer_id); // Debugging
+error_log("Officer ID: " . $officer_id);
 
-// Handle status updates
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $booking_id = (int)$_POST['booking_id'];
         $new_status = $_POST['status'];
-        
+
         $result = $db->query(
             "UPDATE bookings SET status = ? 
              WHERE id = ? AND officer_id = ?",
             [$new_status, $booking_id, $officer_id]
         );
-        
+
         $_SESSION['success_message'] = "Status updated successfully!";
         header("Location: assignments.php");
         exit;
@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Get assignments
+
 try {
     $assignments = $db->query(
         "SELECT 
@@ -47,7 +47,7 @@ try {
         [$officer_id]
     ) ?: [];
 
-    error_log("Assignments count: " . count($assignments)); // Debugging
+    error_log("Assignments count: " . count($assignments)); 
 
 } catch (Exception $e) {
     error_log("Assignments Error: " . $e->getMessage());
@@ -56,20 +56,18 @@ try {
 }
 ?>
 
-<!-- Rest of your HTML remains the same with $assignment['booking_id'] -->
 
 <?php include __DIR__ . '/navbar.php'; ?>
 <?php include __DIR__ . '/sidebar.php'; ?>
 <div class="main-content">
     <div class="container-fluid p-4">
-        <!-- Success/Error Messages -->
         <?php if (!empty($_SESSION['success_message'])): ?>
             <div class="alert alert-success mb-4">
                 <?= htmlspecialchars($_SESSION['success_message']) ?>
                 <?php unset($_SESSION['success_message']); ?>
             </div>
         <?php endif; ?>
-        
+
         <?php if (!empty($error_message)): ?>
             <div class="alert alert-danger mb-4">
                 <?= htmlspecialchars($error_message) ?>
@@ -77,7 +75,7 @@ try {
         <?php endif; ?>
 
         <h2 class="mb-4"><i class="fas fa-tasks me-2"></i> My Assignments</h2>
-        
+
         <div class="card">
             <div class="card-body p-0">
                 <?php if (!empty($assignments)): ?>
@@ -103,32 +101,32 @@ try {
                                         <td><?= htmlspecialchars($assignment['customer_name']) ?></td>
                                         <td><?= htmlspecialchars($assignment['location']) ?></td>
                                         <td>
-                                            <span class="badge bg-<?= 
-                                                $assignment['status'] === 'approved' ? 'success' : 'warning'
-                                            ?>">
+                                            <span class="badge bg-<?=
+                                                                    match ($assignment['status']) {
+                                                                        'approved' => 'success',
+                                                                        'rejected' => 'danger',
+                                                                        default => 'warning'
+                                                                    }
+                                                                    ?>">
                                                 <?= ucfirst($assignment['status']) ?>
                                             </span>
                                         </td>
                                         <td>
-                                        <td>
-                                            <form method="POST" class="d-inline">
-                                                <input type="hidden" name="booking_id" value="<?= $assignment['booking_id'] ?>">
-                                                <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-                                                
-                                                <?php if ($assignment['status'] !== 'approved'): ?>
-                                                    <button type="submit" name="status" value="approved" 
-                                                            class="btn btn-sm btn-success me-1">
+                                            <?php if ($assignment['status'] === 'pending'): ?>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="booking_id" value="<?= $assignment['booking_id'] ?>">
+                                                    <button type="submit" name="status" value="approved"
+                                                        class="btn btn-sm btn-success me-1">
                                                         <i class="fas fa-check"></i> Approve
                                                     </button>
-                                                <?php endif; ?>
-                                                
-                                                <?php if ($assignment['status'] !== 'rejected'): ?>
-                                                    <button type="submit" name="status" value="rejected" 
-                                                            class="btn btn-sm btn-danger">
+                                                    <button type="submit" name="status" value="rejected"
+                                                        class="btn btn-sm btn-danger">
                                                         <i class="fas fa-times"></i> Reject
                                                     </button>
-                                                <?php endif; ?>
-                                            </form>
+                                                </form>
+                                            <?php else: ?>
+                                                <span class="text-muted">Action completed</span>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -140,15 +138,9 @@ try {
                         <i class="fas fa-calendar-times fa-4x text-muted mb-3"></i>
                         <h4>No Assignments Found</h4>
                         <p class="text-muted">You don't have any assigned bookings yet.</p>
-                        <?php if (isAdmin()): ?>
-                            <a href="/views/admin/bookings.php" class="btn btn-primary">
-                                <i class="fas fa-calendar-plus me-2"></i> Assign Bookings
-                            </a>
-                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
-            <a class="dropdown-item" href="/views/auth/logout.php"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
         </div>
     </div>
 </div>

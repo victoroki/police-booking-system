@@ -161,3 +161,32 @@ body {
         margin-left: var(--sidebar-width);
     }
 }
+
+/* Sidebar toggle styles */
+.sidebar-collapsed .sidebar {
+    transform: translateX(-250px);
+}
+
+.sidebar {
+    width: 250px;
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+}
+
+/* Dropdown menu fixes */
+@media (max-width: 991.98px) {
+    .dropdown-menu {
+        position: absolute;
+    }
+    
+    .dropdown-toggle::after {
+        display: none;
+    }
+}
+
+/* Navbar tweaks */
+.navbar {
+    z-index: 1030;
+    position: sticky;
+    top: 0;
+}

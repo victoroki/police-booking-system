@@ -75,10 +75,12 @@ try {
 }
 
 $page_title = "Officer Profile";
+
 require_once __DIR__ . '/../../includes/header.php';
 ?>
 
 <body>
+    <?php include __DIR__ . '/navbar.php'; ?>
     <?php include __DIR__ . '/sidebar.php'; ?>
 
     <main class="main-content">
@@ -142,7 +144,7 @@ require_once __DIR__ . '/../../includes/header.php';
             </div>
         </div>
     </main>
-
+    <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
     <script>
         // Password visibility toggle
         document.querySelectorAll('.password-toggle').forEach(button => {

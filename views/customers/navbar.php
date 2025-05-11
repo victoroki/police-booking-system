@@ -6,11 +6,11 @@
 
         <div class="d-flex align-items-center ms-auto" style="height: var(--navbar-height);">
             <ul class="navbar-nav">
-                <li class="nav-item me-3">
+                <!-- <li class="nav-item me-3">
                     <a class="nav-link" href="/views/Booking/new.php">
                         <i class="fas fa-plus-circle me-1"></i> New Request
                     </a>
-                </li>
+                </li> -->
                 <li class="nav-item me-3">
                     <a class="nav-link position-relative" href="/views/customers/notifications.php">
                         <i class="fas fa-bell"></i>
@@ -24,7 +24,7 @@
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="/views/customers/profile.php"><i class="fas fa-user me-2"></i> Profile</a></li>
-                        <li><a class="dropdown-item" href="/views/customers/settings.php"><i class="fas fa-cog me-2"></i> Settings</a></li>
+                        <!-- <li><a class="dropdown-item" href="/views/customers/settings.php"><i class="fas fa-cog me-2"></i> Settings</a></li> -->
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="/views/auth/logout.php"><i class="fas fa-sign-out-alt me-2"></i> Logout</a></li>
                     </ul>

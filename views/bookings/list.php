@@ -91,7 +91,7 @@ try {
                                     <th>Date & Time</th>
                                     <th>Location</th>
                                     <th>Status</th>
-                                    <th>Actions</th>
+                                    <!-- <th>Actions</th> -->
                                 </tr>
                             </thead>
                             <tbody>
@@ -116,7 +116,7 @@ try {
                                                 <?= ucfirst($booking['status']) ?>
                                             </span>
                                         </td>
-                                        <td>
+                                        <!-- <td>
                                             <a href="/views/Booking/view.php?id=<?= $booking['id'] ?>" 
                                                class="btn btn-sm btn-outline-primary me-1">
                                                 <i class="fas fa-eye"></i>
@@ -132,7 +132,7 @@ try {
                                                     <i class="fas fa-times"></i>
                                                 </a>
                                             <?php endif; ?>
-                                        </td>
+                                        </td> -->
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>

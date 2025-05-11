@@ -14,14 +14,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $booking_id = (int)$_POST['booking_id'];
         $officer_id = (int)$_POST['officer_id'];
         
-        $db->query(
-            "UPDATE bookings 
-             SET officer_id = ?, status = 'approved'
-             WHERE id = ?",
-            [$officer_id, $booking_id]
+        // Verify booking exists and is unassigned
+        $existing = $db->query(
+            "SELECT id FROM bookings WHERE id = ? AND officer_id IS NULL",
+            [$booking_id]
         );
         
-        $_SESSION['success_message'] = "Officer assigned successfully!";
+        if (empty($existing)) {
+            $_SESSION['error_message'] = "Booking already assigned or doesn't exist";
+        } else {
+            $db->query(
+                "UPDATE bookings 
+                 SET officer_id = ?, updated_at = NOW()
+                 WHERE id = ?",
+                [$officer_id, $booking_id]
+            );
+            
+            $_SESSION['success_message'] = "Officer assigned successfully!";
+            
+            // Add notification for the officer
+            // $db->query(
+            //     "INSERT INTO notifications (user_id, message, type)
+            //      VALUES (?, ?, ?)",
+            //     [$officer_id, "New booking assigned (ID: $booking_id)", "assignment"]
+            // );
+        }
     } elseif (isset($_POST['delete_booking'])) {
         $booking_id = (int)$_POST['booking_id'];
         $db->query("DELETE FROM bookings WHERE id = ?", [$booking_id]);
@@ -32,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Get all bookings
 try {
+    // Original query without county handling
     $query = "SELECT b.*, 
               u1.full_name AS customer_name,
               u2.full_name AS officer_name
@@ -49,8 +66,8 @@ try {
     $query .= " ORDER BY b.created_at DESC";
     
     $bookings = $db->query($query, $params) ?: [];
-    
-    // Get all officers for dropdown
+
+    // Original officers query
     $officers = $db->query(
         "SELECT id, full_name FROM users WHERE role = 'officer'"
     ) ?: [];
@@ -79,6 +96,24 @@ try {
         .assignment-dropdown {
             min-width: 200px;
         }
+        .stat-card {
+            border-left: 4px solid;
+            transition: all 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .stat-total { border-color: #007bff; }
+        .stat-pending { border-color: #ffc107; }
+        .stat-approved { border-color: #28a745; }
+        .stat-rejected { border-color: #dc3545; }
+        .stat-unassigned { border-color: #6c757d; }
+        .county-badge {
+            font-size: 0.75rem;
+            background-color: #e9ecef;
+            color: #495057;
+        }
     </style>
 </head>
 <body>
@@ -94,6 +129,7 @@ try {
                     <a href="bookings.php?status=pending" class="btn btn-sm btn-outline-warning <?= $status_filter === 'pending' ? 'active' : '' ?>">Pending</a>
                     <a href="bookings.php?status=approved" class="btn btn-sm btn-outline-success <?= $status_filter === 'approved' ? 'active' : '' ?>">Approved</a>
                     <a href="bookings.php?status=rejected" class="btn btn-sm btn-outline-danger <?= $status_filter === 'rejected' ? 'active' : '' ?>">Rejected</a>
+                    <a href="bookings.php?status=unassigned" class="btn btn-sm btn-outline-info <?= $status_filter === 'unassigned' ? 'active' : '' ?>">Unassigned</a>
                 </div>
             </div>
 
@@ -104,11 +140,62 @@ try {
                 </div>
             <?php endif; ?>
 
+            <?php if (!empty($_SESSION['error_message'])): ?>
+                <div class="alert alert-danger">
+                    <?= htmlspecialchars($_SESSION['error_message']) ?>
+                    <?php unset($_SESSION['error_message']); ?>
+                </div>
+            <?php endif; ?>
+
             <?php if (!empty($error_message)): ?>
                 <div class="alert alert-danger">
                     <?= htmlspecialchars($error_message) ?>
                 </div>
             <?php endif; ?>
+
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <div class="col-md-2">
+                    <div class="card stat-card stat-total">
+                        <div class="card-body py-2">
+                            <h6 class="card-title">Total</h6>
+                            <h4 class="mb-0"><?= $stats['total'] ?? 0 ?></h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stat-card stat-pending">
+                        <div class="card-body py-2">
+                            <h6 class="card-title">Pending</h6>
+                            <h4 class="mb-0"><?= $stats['pending'] ?? 0 ?></h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stat-card stat-approved">
+                        <div class="card-body py-2">
+                            <h6 class="card-title">Approved</h6>
+                            <h4 class="mb-0"><?= $stats['approved'] ?? 0 ?></h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stat-card stat-rejected">
+                        <div class="card-body py-2">
+                            <h6 class="card-title">Rejected</h6>
+                            <h4 class="mb-0"><?= $stats['rejected'] ?? 0 ?></h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card stat-card stat-unassigned">
+                        <div class="card-body py-2">
+                            <h6 class="card-title">Unassigned</h6>
+                            <h4 class="mb-0"><?= $stats['unassigned'] ?? 0 ?></h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div class="card">
                 <div class="card-body p-0">
@@ -129,13 +216,14 @@ try {
                                 </thead>
                                 <tbody>
                                     <?php foreach ($bookings as $booking): ?>
-                                        <?php if (!isset($booking['booking_id'])) {
-                                            error_log("Invalid booking entry: " . print_r($booking, true));
-                                            continue;
-                                        } ?>
-                                        <tr>
-                                            <td>#<?= $booking['booking_id'] ?></td>
-                                            <td><?= htmlspecialchars($booking['event_name']) ?></td>
+                                        <tr data-county="<?= htmlspecialchars($booking['customer_county'] ?? '') ?>">
+                                            <td>#<?= $booking['id'] ?></td>
+                                            <td>
+                                                <?= htmlspecialchars($booking['event_name']) ?>
+                                                <?php if (!empty($booking['customer_county'])): ?>
+                                                    <span class="county-badge ms-2"><?= htmlspecialchars($booking['customer_county']) ?></span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td><?= htmlspecialchars($booking['customer_name']) ?></td>
                                             <td>
                                                 <?= date('M j, Y', strtotime($booking['event_date'])) ?><br>
@@ -158,15 +246,19 @@ try {
                                             </td>
                                             <td>
                                                 <div class="d-flex gap-2">
-                                                    <?php if ($booking['status'] === 'pending'): ?>
+                                                    <?php if ($booking['status'] === 'pending' || empty($booking['officer_id'])): ?>
                                                         <form method="POST" class="d-inline">
-                                                            <input type="hidden" name="booking_id" value="<?= $booking['booking_id'] ?>">
+                                                            <input type="hidden" name="booking_id" value="<?= $booking['id'] ?>">
                                                             <div class="input-group">
                                                                 <select name="officer_id" class="form-select form-select-sm assignment-dropdown" required>
                                                                     <option value="">Assign Officer</option>
                                                                     <?php foreach ($officers as $officer): ?>
-                                                                        <option value="<?= $officer['id'] ?>">
+                                                                        <option value="<?= $officer['id'] ?>" 
+                                                                                data-county="<?= htmlspecialchars($officer['county'] ?? '') ?>">
                                                                             <?= htmlspecialchars($officer['full_name']) ?>
+                                                                            <?php if (!empty($officer['county'])): ?>
+                                                                                (<?= htmlspecialchars($officer['county']) ?>)
+                                                                            <?php endif; ?>
                                                                         </option>
                                                                     <?php endforeach; ?>
                                                                 </select>
@@ -179,7 +271,7 @@ try {
                                                     <?php endif; ?>
                                                     
                                                     <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="booking_id" value="<?= $booking['booking_id'] ?>">
+                                                        <input type="hidden" name="booking_id" value="<?= $booking['id'] ?>">
                                                         <button type="submit" name="delete_booking" 
                                                                 class="btn btn-sm btn-danger"
                                                                 onclick="return confirm('Are you sure you want to delete this booking?')">
@@ -206,5 +298,42 @@ try {
     </div>
 
     <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+
+    <script>
+    // Filter officers by county when assigning
+    document.addEventListener('DOMContentLoaded', function() {
+        const bookingRows = document.querySelectorAll('tr[data-county]');
+        
+        bookingRows.forEach(row => {
+            const county = row.getAttribute('data-county');
+            const select = row.querySelector('select[name="officer_id"]');
+            
+            if (select && county) {
+                // Show only officers from matching county or without county specified
+                Array.from(select.options).forEach(option => {
+                    if (option.value === "") return; // Keep the "Assign Officer" option
+                    
+                    const optionCounty = option.getAttribute('data-county');
+                    option.style.display = (!optionCounty || optionCounty === county) ? '' : 'none';
+                });
+                
+                // Add event listener to show all options when dropdown opens
+                select.addEventListener('mousedown', function() {
+                    Array.from(this.options).forEach(option => {
+                        option.style.display = '';
+                    });
+                });
+                
+                // Re-filter when dropdown closes
+                select.addEventListener('change', function() {
+                    Array.from(this.options).forEach(option => {
+                        const optionCounty = option.getAttribute('data-county');
+                        option.style.display = (!optionCounty || optionCounty === county) ? '' : 'none';
+                    });
+                });
+            }
+        });
+    });
+    </script>
 </body>
 </html>
