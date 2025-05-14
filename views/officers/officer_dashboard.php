@@ -207,7 +207,7 @@ try {
                         <table class="table table-hover align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Case #</th>
+                                    <th>Book #</th>
                                     <th>Event</th>
                                     <th>Customer</th>
                                     <th>Status</th>
